@@ -1,0 +1,367 @@
+basePath: /
+definitions:
+  apis.AccountResponse:
+    properties:
+      account_reference:
+        type: string
+      configured:
+        type: boolean
+      credential_source:
+        type: string
+      provider:
+        type: string
+    type: object
+  apis.CatalogResponse:
+    properties:
+      source:
+        example: embedded
+        type: string
+      status:
+        example: not_ready
+        type: string
+      version:
+        example: embedded-development
+        type: string
+    type: object
+  apis.Config:
+    properties:
+      currency:
+        example: USD
+        type: string
+      default_provider:
+        example: aws
+        type: string
+      default_region:
+        example: ap-southeast-1
+        type: string
+      monthly_hours:
+        example: 730
+        type: number
+      pricing_mode:
+        example: offline
+        type: string
+    type: object
+  apis.ConfigPatch:
+    properties:
+      currency:
+        type: string
+      default_provider:
+        type: string
+      default_region:
+        type: string
+      monthly_hours:
+        type: number
+      pricing_mode:
+        type: string
+    type: object
+  apis.EstimateRequest:
+    properties:
+      provider:
+        example: aws
+        type: string
+      provider_options:
+        additionalProperties: {}
+        type: object
+      region:
+        example: ap-southeast-1
+        type: string
+      service:
+        example: ec2
+        type: string
+      usage:
+        $ref: '#/definitions/apis.Usage'
+    type: object
+  apis.EstimateResult:
+    properties:
+      assumptions:
+        items:
+          type: string
+        type: array
+      catalog_version:
+        type: string
+      currency:
+        type: string
+      monthly_total:
+        type: string
+      provider:
+        type: string
+      region:
+        type: string
+      service:
+        type: string
+    type: object
+  apis.Problem:
+    properties:
+      detail:
+        example: hours must be greater than or equal to zero
+        type: string
+      instance:
+        example: /v1/estimates
+        type: string
+      request_id:
+        example: a1b2c3d4
+        type: string
+      status:
+        example: 400
+        type: integer
+      title:
+        example: Invalid request
+        type: string
+      type:
+        example: /problems/invalid-request
+        type: string
+    type: object
+  apis.Provider:
+    properties:
+      id:
+        example: aws
+        type: string
+      name:
+        example: Amazon Web Services
+        type: string
+    type: object
+  apis.Region:
+    properties:
+      id:
+        example: ap-southeast-1
+        type: string
+      name:
+        example: Asia Pacific (Singapore)
+        type: string
+    type: object
+  apis.Service:
+    properties:
+      id:
+        example: ec2
+        type: string
+      name:
+        example: Amazon EC2
+        type: string
+    type: object
+  apis.Usage:
+    properties:
+      hours:
+        example: 730
+        type: number
+      instance:
+        example: t3.micro
+        type: string
+      storage_gb:
+        example: 20
+        type: number
+    type: object
+info:
+  contact: {}
+  description: |-
+    Private API for estimating cloud costs across AWS, Azure, and GCP.
+    Estimates are informational and depend on the selected pricing catalog.
+  title: costGuard API
+  version: "1.0"
+paths:
+  /healthz:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Check API health
+      tags:
+      - system
+  /v1/account:
+    get:
+      description: Never returns cloud credentials or tokens.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apis.AccountResponse'
+      summary: Get safe account metadata
+      tags:
+      - account
+  /v1/catalog:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apis.CatalogResponse'
+      summary: Get pricing catalog status
+      tags:
+      - catalog
+  /v1/config:
+    delete:
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apis.Problem'
+      summary: Reset saved configuration
+      tags:
+      - configuration
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apis.Config'
+      summary: Get saved configuration
+      tags:
+      - configuration
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Partial preferences
+        in: body
+        name: config
+        required: true
+        schema:
+          $ref: '#/definitions/apis.ConfigPatch'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apis.Config'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apis.Problem'
+      summary: Update saved configuration
+      tags:
+      - configuration
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Complete preferences
+        in: body
+        name: config
+        required: true
+        schema:
+          $ref: '#/definitions/apis.Config'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apis.Config'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apis.Problem'
+      summary: Replace saved configuration
+      tags:
+      - configuration
+  /v1/estimates:
+    post:
+      consumes:
+      - application/json
+      description: Calculates an estimate using the selected provider and pricing
+        catalog.
+      parameters:
+      - description: Estimate input
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/apis.EstimateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apis.EstimateResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apis.Problem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/apis.Problem'
+      summary: Create a cost estimate
+      tags:
+      - estimates
+  /v1/providers:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/apis.Provider'
+            type: array
+      summary: List supported cloud providers
+      tags:
+      - discovery
+  /v1/providers/{provider}/regions:
+    get:
+      parameters:
+      - description: Cloud provider
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/apis.Region'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/apis.Problem'
+      summary: List provider regions
+      tags:
+      - discovery
+  /v1/providers/{provider}/services:
+    get:
+      parameters:
+      - description: Cloud provider
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/apis.Service'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/apis.Problem'
+      summary: List provider services
+      tags:
+      - discovery
+schemes:
+- http
+- https
+swagger: "2.0"
