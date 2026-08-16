@@ -5,7 +5,7 @@
 // @BasePath /
 // @schemes http https
 //
-//go:generate go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g main.go -d .,apis -o docs --outputTypes json,yaml
+//go:generate go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g main.go -d .,apis -o docs --outputTypes go,json,yaml
 
 package main
 

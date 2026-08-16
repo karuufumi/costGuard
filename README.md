@@ -80,6 +80,12 @@ Configuration stores preferences only. Cloud credentials are never accepted or s
 
 The API uses Swaggo annotations.
 
+Start the app and open the interactive API documentation at:
+
+```text
+http://localhost:8000/docs/index.html
+```
+
 Generate the OpenAPI files with:
 
 ```bash
@@ -113,4 +119,3 @@ go test ./...
 go vet ./...
 go build ./...
 ```
-

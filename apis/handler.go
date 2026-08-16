@@ -10,6 +10,9 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+
+	_ "costguard/docs"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 const maxJSONBody = 1 << 20
@@ -123,6 +126,11 @@ func NewHandler(config HandlerConfig) http.Handler {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handler.health)
+	mux.HandleFunc("GET /", handler.home)
+	mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/docs/", http.StatusMovedPermanently)
+	})
+	mux.Handle("GET /docs/", httpSwagger.Handler(httpSwagger.URL("/docs/doc.json")))
 	mux.HandleFunc("GET /v1/providers", handler.providers)
 	mux.HandleFunc("GET /v1/providers/{provider}/services", handler.providerServices)
 	mux.HandleFunc("GET /v1/providers/{provider}/regions", handler.providerRegions)
@@ -136,6 +144,51 @@ func NewHandler(config HandlerConfig) http.Handler {
 	mux.HandleFunc("/", handler.notFound)
 
 	return withRequestContext(withSecurityHeaders(mux))
+}
+
+func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>costGuard API</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; background: #f4f6f8; color: #17202a; }
+    main { max-width: 760px; margin: 10vh auto; padding: 2rem; }
+    .card { padding: 2rem; border: 1px solid #d9dee5; border-radius: 14px; background: white; box-shadow: 0 12px 30px #17202a18; }
+    h1 { margin-top: 0; letter-spacing: -0.03em; }
+    p { line-height: 1.6; color: #52606d; }
+    nav { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+    a { padding: 0.7rem 1rem; border-radius: 8px; background: #1769e0; color: white; text-decoration: none; }
+    a:hover { background: #0f4fae; }
+    code { padding: 0.15rem 0.35rem; border-radius: 4px; background: #eef1f4; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #111820; color: #edf2f7; }
+      .card { border-color: #344454; background: #1b2633; }
+      p { color: #b8c4d0; }
+      code { background: #2b3948; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <h1>costGuard API</h1>
+      <p>A small API for estimating cloud costs across AWS, Azure, and GCP.</p>
+      <p>The presentation layer is running. Pricing calculations are still being connected.</p>
+      <nav aria-label="API resources">
+        <a href="/docs">OpenAPI docs</a>
+        <a href="/healthz">Health check</a>
+        <a href="/v1/providers">Providers</a>
+      </nav>
+    </section>
+  </main>
+</body>
+</html>`))
 }
 
 // @Summary Check API health

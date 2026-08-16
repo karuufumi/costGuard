@@ -36,6 +36,31 @@ func TestProviders(t *testing.T) {
 	}
 }
 
+func TestDocsRoute(t *testing.T) {
+	redirect := request(t, NewHandler(HandlerConfig{}), http.MethodGet, "/docs", "")
+	if redirect.Code != http.StatusMovedPermanently {
+		t.Fatalf("redirect status = %d, want %d", redirect.Code, http.StatusMovedPermanently)
+	}
+
+	response := request(t, NewHandler(HandlerConfig{}), http.MethodGet, "/docs/index.html", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if !strings.Contains(response.Body.String(), "Swagger UI") {
+		t.Fatal("docs response does not contain Swagger UI")
+	}
+}
+
+func TestHomeRoute(t *testing.T) {
+	response := request(t, NewHandler(HandlerConfig{}), http.MethodGet, "/", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if !strings.Contains(response.Body.String(), "costGuard API") {
+		t.Fatal("home page does not contain the application title")
+	}
+}
+
 func TestProviderServices(t *testing.T) {
 	response := request(t, NewHandler(HandlerConfig{}), http.MethodGet, "/v1/providers/azure/services", "")
 	if response.Code != http.StatusOK {
