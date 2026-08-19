@@ -1,6 +1,6 @@
 # costGuard
 
-A small Go application for estimating cloud costs through a private HTTP API.
+A small Go CLI for estimating cloud costs, with an optional private HTTP adapter.
 
 The project is designed to support:
 
@@ -26,16 +26,64 @@ Requirements:
 
 - Go 1.26 or newer
 
-Start the API:
+Show CLI help:
+
+```bash
+go run . help
+```
+
+Run an interactive estimate from a terminal:
 
 ```bash
 go run .
 ```
 
-The server listens on port `8000` by default. Set another port with:
+Run a repeatable estimate:
 
 ```bash
-PORT=9000 go run .
+go run . estimate \
+  --provider aws \
+  --service ec2 \
+  --region us-east-1 \
+  --instance t3.micro \
+  --hours 730
+```
+
+Use JSON in scripts:
+
+```bash
+go run . estimate \
+  --provider aws \
+  --service ec2 \
+  --region us-east-1 \
+  --instance t3.micro \
+  --hours 730 \
+  --format json
+```
+
+The local catalog can be inspected without estimating:
+
+```bash
+go run . services --provider aws
+go run . regions --provider aws
+go run . catalog
+```
+
+Interactive mode only runs when standard input is a terminal. In scripts or
+piped commands, use `estimate` flags so the command cannot wait for input.
+
+## HTTP adapter
+
+Start the private API adapter explicitly:
+
+```bash
+go run . serve
+```
+
+It listens on `127.0.0.1:8000` by default. Set another port with:
+
+```bash
+PORT=9000 go run . serve
 ```
 
 ## API
