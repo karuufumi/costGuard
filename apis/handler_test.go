@@ -21,7 +21,7 @@ func (fakeEstimator) Estimate(_ context.Context, request domain.EstimateRequest)
 		Service:        request.Service,
 		Region:         request.Region,
 		Currency:       "USD",
-		MonthlyTotal:   "1.23",
+		MonthlyTotal:   domain.NewUSDMoney(1_230_000),
 		CatalogVersion: "test",
 		Assumptions:    []string{"test catalog"},
 	}, nil
@@ -134,7 +134,7 @@ func TestPutConfigRejectsCredentialsAndUnknownFields(t *testing.T) {
 func TestEstimateWithoutDomainReturnsServiceUnavailable(t *testing.T) {
 	handler := NewHandler(HandlerConfig{})
 
-	response := request(t, handler, http.MethodPost, "/v1/estimates", `{"provider":"gcp","service":"compute-engine","region":"asia-southeast1","usage":{"hours":730}}`)
+	response := request(t, handler, http.MethodPost, "/v1/estimates", `{"provider":"gcp","service":"compute-engine","region":"asia-southeast1","usage":{"instance":"e2-micro","hours":730}}`)
 	if response.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusServiceUnavailable)
 	}
@@ -143,7 +143,7 @@ func TestEstimateWithoutDomainReturnsServiceUnavailable(t *testing.T) {
 func TestEstimateDelegatesToDomain(t *testing.T) {
 	handler := NewHandler(HandlerConfig{Estimator: fakeEstimator{}})
 
-	response := request(t, handler, http.MethodPost, "/v1/estimates", `{"provider":"aws","service":"ec2","region":"ap-southeast-1","usage":{"hours":730}}`)
+	response := request(t, handler, http.MethodPost, "/v1/estimates", `{"provider":"aws","service":"ec2","region":"ap-southeast-1","usage":{"instance":"t3.micro","hours":730}}`)
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
 	}

@@ -163,6 +163,11 @@ func NewHandler(config HandlerConfig) http.Handler {
 }
 
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		h.notFound(w, r)
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`<!doctype html>
@@ -380,7 +385,8 @@ func (h *Handler) estimate(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	if err := validateEstimateRequest(request); err != nil {
+	domainRequest, err := toDomainRequest(request)
+	if err != nil {
 		writeProblem(w, http.StatusBadRequest, "invalid-estimate-input", "Invalid estimate input", err.Error(), r.URL.Path)
 		return
 	}
@@ -389,7 +395,7 @@ func (h *Handler) estimate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.estimator.Estimate(r.Context(), toDomainRequest(request))
+	result, err := h.estimator.Estimate(r.Context(), domainRequest)
 	if err != nil {
 		if errors.Is(err, estimate.ErrInvalidInput) {
 			writeProblem(w, http.StatusBadRequest, "unsupported-estimate-input", "Unsupported estimate input", err.Error(), r.URL.Path)
@@ -401,36 +407,38 @@ func (h *Handler) estimate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, fromDomainResult(result))
 }
 
-func toDomainRequest(request EstimateRequest) domain.EstimateRequest {
-	return domain.EstimateRequest{Provider: request.Provider, Service: request.Service, Region: request.Region,
-		Usage: domain.Usage{Hours: request.Usage.Hours, Instance: request.Usage.Instance}, Options: request.ProviderOptions}
+func toDomainRequest(request EstimateRequest) (domain.EstimateRequest, error) {
+	if len(request.ProviderOptions) != 0 {
+		return domain.EstimateRequest{}, errors.New("provider_options are not supported for the current EC2 estimate")
+	}
+	usage, err := domain.NewUsage(request.Usage.Instance, request.Usage.Hours)
+	if err != nil {
+		return domain.EstimateRequest{}, err
+	}
+	domainRequest := domain.EstimateRequest{
+		Provider: domain.Provider(request.Provider),
+		Service:  domain.Service(request.Service),
+		Region:   domain.Region(request.Region),
+		Usage:    usage,
+	}
+	return domainRequest, domainRequest.Validate()
 }
 
 func fromDomainResult(result domain.EstimateResult) EstimateResult {
 	breakdown := make([]LineItem, len(result.Breakdown))
 	for i, item := range result.Breakdown {
-		breakdown[i] = LineItem{Description: item.Description, Quantity: item.Quantity, Unit: item.Unit, Rate: item.Rate, Total: item.Total}
+		breakdown[i] = LineItem{
+			Description: item.Description,
+			Quantity:    item.Quantity.Hours(),
+			Unit:        item.Unit,
+			Rate:        item.Rate.PreciseString(),
+			Total:       item.Total.String(),
+		}
 	}
-	return EstimateResult{Provider: result.Provider, Service: result.Service, Region: result.Region, Currency: result.Currency,
-		HourlyTotal: result.HourlyTotal, DailyTotal: result.DailyTotal, MonthlyTotal: result.MonthlyTotal, AnnualTotal: result.AnnualTotal,
+	return EstimateResult{Provider: string(result.Provider), Service: string(result.Service), Region: string(result.Region), Currency: string(result.Currency),
+		HourlyTotal: result.HourlyTotal.String(), DailyTotal: result.DailyTotal.String(), MonthlyTotal: result.MonthlyTotal.String(), AnnualTotal: result.AnnualTotal.String(),
 		CatalogVersion: result.CatalogVersion, CatalogSource: result.CatalogSource, Breakdown: breakdown,
 		Assumptions: result.Assumptions, Warnings: result.Warnings}
-}
-
-func validateEstimateRequest(request EstimateRequest) error {
-	if !isProvider(request.Provider) {
-		return errors.New("provider must be one of: aws, azure, gcp")
-	}
-	if strings.TrimSpace(request.Service) == "" {
-		return errors.New("service is required")
-	}
-	if strings.TrimSpace(request.Region) == "" {
-		return errors.New("region is required")
-	}
-	if request.Usage.Hours < 0 {
-		return errors.New("usage.hours must be greater than or equal to zero")
-	}
-	return nil
 }
 
 var ErrInvalidConfig = errors.New("configuration is invalid")

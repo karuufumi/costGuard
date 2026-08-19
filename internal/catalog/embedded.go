@@ -1,21 +1,27 @@
 // Package catalog provides deterministic pricing data sources.
 package catalog
 
-import "errors"
+import (
+	"errors"
+	"time"
+
+	"costguard/internal/domain"
+)
 
 var ErrRateNotFound = errors.New("pricing rate not found")
 
 type ProductKey struct {
-	Provider string
-	Service  string
-	Region   string
-	Instance string
+	Provider domain.Provider
+	Service  domain.Service
+	Region   domain.Region
+	Instance domain.InstanceType
 }
 
-// HourlyRate uses micro-USD, avoiding binary floating-point currency values.
 type HourlyRate struct {
-	MicroUSD int64
-	Source   string
+	Price        domain.Money
+	Unit         string
+	Source       string
+	LastVerified time.Time
 }
 
 type Embedded struct {
@@ -24,9 +30,11 @@ type Embedded struct {
 
 func NewEmbedded() *Embedded {
 	return &Embedded{rates: map[ProductKey]HourlyRate{
-		{Provider: "aws", Service: "ec2", Region: "us-east-1", Instance: "t3.micro"}: {
-			MicroUSD: 10400,
-			Source:   "AWS EC2 On-Demand Linux shared-tenancy manual catalog snapshot",
+		{Provider: domain.ProviderAWS, Service: "ec2", Region: "us-east-1", Instance: "t3.micro"}: {
+			Price:        domain.NewUSDMoney(10_400),
+			Unit:         "instance-hours",
+			Source:       "AWS EC2 On-Demand Linux shared-tenancy manual catalog snapshot",
+			LastVerified: time.Date(2026, time.August, 18, 0, 0, 0, 0, time.UTC),
 		},
 	}}
 }
