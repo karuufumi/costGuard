@@ -7,12 +7,16 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"costguard/internal/catalog"
+	"costguard/internal/domain"
+	"costguard/internal/estimate"
 )
 
 type fakeEstimator struct{}
 
-func (fakeEstimator) Estimate(_ context.Context, request EstimateRequest) (EstimateResult, error) {
-	return EstimateResult{
+func (fakeEstimator) Estimate(_ context.Context, request domain.EstimateRequest) (domain.EstimateResult, error) {
+	return domain.EstimateResult{
 		Provider:       request.Provider,
 		Service:        request.Service,
 		Region:         request.Region,
@@ -148,6 +152,24 @@ func TestEstimateDelegatesToDomain(t *testing.T) {
 	decodeBody(t, response, &result)
 	if result.MonthlyTotal != "1.23" {
 		t.Fatalf("monthly total = %q, want 1.23", result.MonthlyTotal)
+	}
+}
+
+func TestEstimateCalculatesEmbeddedEC2Rate(t *testing.T) {
+	handler := NewHandler(HandlerConfig{Estimator: estimate.NewCalculator(catalog.NewEmbedded())})
+
+	response := request(t, handler, http.MethodPost, "/v1/estimates", `{"provider":"aws","service":"ec2","region":"us-east-1","usage":{"instance":"t3.micro","hours":730}}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %s", response.Code, http.StatusOK, response.Body.String())
+	}
+
+	var result EstimateResult
+	decodeBody(t, response, &result)
+	if result.MonthlyTotal != "7.59" {
+		t.Fatalf("monthly total = %q, want 7.59", result.MonthlyTotal)
+	}
+	if len(result.Warnings) == 0 {
+		t.Fatal("expected exclusions warning")
 	}
 }
 

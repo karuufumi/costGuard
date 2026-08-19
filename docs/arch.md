@@ -20,15 +20,16 @@ when estimate calculation is implemented.
 | Method | Route | Purpose | Status |
 | --- | --- | --- | --- |
 | `GET` | `/healthz` | Container/process health check | Implemented |
-| `GET` | `/v1/services` | List supported AWS services | Implemented |
-| `GET` | `/v1/regions` | List supported AWS regions | Implemented |
-| `GET` | `/v1/catalog` | Report pricing catalog status | Scaffolded |
-| `POST` | `/v1/estimates` | Calculate an estimate from structured input | Boundary implemented; domain pending |
+| `GET` | `/v1/providers/{provider}/services` | List planned provider services | Implemented |
+| `GET` | `/v1/providers/{provider}/regions` | List known provider regions | Implemented |
+| `GET` | `/v1/catalog` | Report the embedded catalog status | Implemented |
+| `POST` | `/v1/estimates` | Calculate an estimate from structured input | AWS EC2 `t3.micro` in `us-east-1` implemented |
 
-The estimate endpoint deliberately returns `503 Service Unavailable` until a
-pricing catalog and Domain Layer calculator exist. Returning invented prices
-from the HTTP handler would make the API look functional while producing
-untrustworthy results.
+The first calculator uses a small versioned embedded catalog. Unsupported
+products fail clearly rather than returning invented prices. Its only completed
+product is AWS EC2 Linux shared-tenancy on-demand `t3.micro` in `us-east-1`.
+Data transfer, EBS, public IPv4, taxes, support, Savings Plans, Reserved
+Instances, Spot, and operating-system licensing are excluded.
 
 ## API patterns applied
 

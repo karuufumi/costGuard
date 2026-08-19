@@ -436,16 +436,34 @@ const docTemplate = `{
         "apis.EstimateResult": {
             "type": "object",
             "properties": {
+                "annual_total": {
+                    "type": "string"
+                },
                 "assumptions": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
+                "breakdown": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apis.LineItem"
+                    }
+                },
+                "catalog_source": {
+                    "type": "string"
+                },
                 "catalog_version": {
                     "type": "string"
                 },
                 "currency": {
+                    "type": "string"
+                },
+                "daily_total": {
+                    "type": "string"
+                },
+                "hourly_total": {
                     "type": "string"
                 },
                 "monthly_total": {
@@ -458,6 +476,32 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "service": {
+                    "type": "string"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "apis.LineItem": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "number"
+                },
+                "rate": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "string"
+                },
+                "unit": {
                     "type": "string"
                 }
             }
@@ -540,10 +584,6 @@ const docTemplate = `{
                 "instance": {
                     "type": "string",
                     "example": "t3.micro"
-                },
-                "storage_gb": {
-                    "type": "number",
-                    "example": 20
                 }
             }
         }

@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"costguard/apis"
+	"costguard/internal/catalog"
+	"costguard/internal/estimate"
 )
 
 func main() {
@@ -26,7 +28,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           apis.NewHandler(apis.HandlerConfig{}),
+		Handler:           apis.NewHandler(apis.HandlerConfig{Estimator: estimate.NewCalculator(catalog.NewEmbedded())}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,

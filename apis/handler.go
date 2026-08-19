@@ -12,6 +12,9 @@ import (
 	"sync"
 
 	_ "costguard/docs"
+	"costguard/internal/domain"
+	"costguard/internal/estimate"
+
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -33,9 +36,8 @@ type Region struct {
 }
 
 type Usage struct {
-	Hours     float64 `json:"hours" example:"730"`
-	StorageGB float64 `json:"storage_gb,omitempty" example:"20"`
-	Instance  string  `json:"instance,omitempty" example:"t3.micro"`
+	Hours    float64 `json:"hours" example:"730"`
+	Instance string  `json:"instance" example:"t3.micro"`
 }
 
 type EstimateRequest struct {
@@ -47,13 +49,27 @@ type EstimateRequest struct {
 }
 
 type EstimateResult struct {
-	Provider       string   `json:"provider"`
-	Service        string   `json:"service"`
-	Region         string   `json:"region"`
-	Currency       string   `json:"currency"`
-	MonthlyTotal   string   `json:"monthly_total"`
-	CatalogVersion string   `json:"catalog_version"`
-	Assumptions    []string `json:"assumptions"`
+	Provider       string     `json:"provider"`
+	Service        string     `json:"service"`
+	Region         string     `json:"region"`
+	Currency       string     `json:"currency"`
+	HourlyTotal    string     `json:"hourly_total"`
+	DailyTotal     string     `json:"daily_total"`
+	MonthlyTotal   string     `json:"monthly_total"`
+	AnnualTotal    string     `json:"annual_total"`
+	CatalogVersion string     `json:"catalog_version"`
+	CatalogSource  string     `json:"catalog_source"`
+	Breakdown      []LineItem `json:"breakdown"`
+	Assumptions    []string   `json:"assumptions"`
+	Warnings       []string   `json:"warnings"`
+}
+
+type LineItem struct {
+	Description string  `json:"description"`
+	Quantity    float64 `json:"quantity"`
+	Unit        string  `json:"unit"`
+	Rate        string  `json:"rate"`
+	Total       string  `json:"total"`
 }
 
 type Config struct {
@@ -95,7 +111,7 @@ type Problem struct {
 }
 
 type Estimator interface {
-	Estimate(context.Context, EstimateRequest) (EstimateResult, error)
+	Estimate(context.Context, domain.EstimateRequest) (domain.EstimateResult, error)
 }
 
 type ConfigStore interface {
@@ -254,9 +270,9 @@ func (h *Handler) providerRegions(w http.ResponseWriter, r *http.Request) {
 // @Router /v1/catalog [get]
 func (h *Handler) catalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, CatalogResponse{
-		Version: "embedded-development",
+		Version: "2026-08-18.1",
 		Source:  "embedded",
-		Status:  "not_ready",
+		Status:  "available",
 	})
 }
 
@@ -373,12 +389,32 @@ func (h *Handler) estimate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.estimator.Estimate(r.Context(), request)
+	result, err := h.estimator.Estimate(r.Context(), toDomainRequest(request))
 	if err != nil {
+		if errors.Is(err, estimate.ErrInvalidInput) {
+			writeProblem(w, http.StatusBadRequest, "unsupported-estimate-input", "Unsupported estimate input", err.Error(), r.URL.Path)
+			return
+		}
 		writeProblem(w, http.StatusServiceUnavailable, "estimate-unavailable", "Estimate unavailable", "the estimate could not be calculated", r.URL.Path)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, http.StatusOK, fromDomainResult(result))
+}
+
+func toDomainRequest(request EstimateRequest) domain.EstimateRequest {
+	return domain.EstimateRequest{Provider: request.Provider, Service: request.Service, Region: request.Region,
+		Usage: domain.Usage{Hours: request.Usage.Hours, Instance: request.Usage.Instance}, Options: request.ProviderOptions}
+}
+
+func fromDomainResult(result domain.EstimateResult) EstimateResult {
+	breakdown := make([]LineItem, len(result.Breakdown))
+	for i, item := range result.Breakdown {
+		breakdown[i] = LineItem{Description: item.Description, Quantity: item.Quantity, Unit: item.Unit, Rate: item.Rate, Total: item.Total}
+	}
+	return EstimateResult{Provider: result.Provider, Service: result.Service, Region: result.Region, Currency: result.Currency,
+		HourlyTotal: result.HourlyTotal, DailyTotal: result.DailyTotal, MonthlyTotal: result.MonthlyTotal, AnnualTotal: result.AnnualTotal,
+		CatalogVersion: result.CatalogVersion, CatalogSource: result.CatalogSource, Breakdown: breakdown,
+		Assumptions: result.Assumptions, Warnings: result.Warnings}
 }
 
 func validateEstimateRequest(request EstimateRequest) error {
@@ -393,9 +429,6 @@ func validateEstimateRequest(request EstimateRequest) error {
 	}
 	if request.Usage.Hours < 0 {
 		return errors.New("usage.hours must be greater than or equal to zero")
-	}
-	if request.Usage.StorageGB < 0 {
-		return errors.New("usage.storage_gb must be greater than or equal to zero")
 	}
 	return nil
 }

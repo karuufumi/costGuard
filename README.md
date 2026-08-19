@@ -1,6 +1,6 @@
 # costGuard
 
-A small Go application for estimating cloud costs from the command line and HTTP API.
+A small Go application for estimating cloud costs through a private HTTP API.
 
 The project is designed to support:
 
@@ -12,9 +12,13 @@ Pricing calculations are being built behind provider-specific adapters so the pr
 
 ## Current status
 
-The HTTP presentation layer is available. Pricing calculation and live provider catalogs are still in progress.
+The first deterministic pricing path is available: AWS EC2 Linux shared-tenancy,
+on-demand `t3.micro` in `us-east-1`. It uses an embedded catalog snapshot
+(`2026-08-18.1`) so results are reproducible offline.
 
-The estimate endpoint currently returns `503 Service Unavailable` until a pricing catalog and Domain Layer calculator are connected.
+All other provider, service, region, or instance combinations remain unsupported
+until their catalog entries and calculation rules are implemented. Live pricing
+refresh is not implemented.
 
 ## Run locally
 
@@ -75,6 +79,17 @@ curl -X DELETE http://localhost:8000/v1/config
 ```
 
 Configuration stores preferences only. Cloud credentials are never accepted or stored by costGuard.
+
+Create an EC2 estimate:
+
+```bash
+curl -X POST http://localhost:8000/v1/estimates \
+  -H 'Content-Type: application/json' \
+  -d '{"provider":"aws","service":"ec2","region":"us-east-1","usage":{"instance":"t3.micro","hours":730}}'
+```
+
+The result includes hourly, daily, monthly, and annual totals, the catalog
+version, assumptions, and omitted cost dimensions. It is an estimate, not a bill.
 
 ## OpenAPI
 
